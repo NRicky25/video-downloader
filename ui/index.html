@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Downloader</title>
+<style>
+  :root {
+    --bg: #f5f5f8;
+    --surface: #ffffff;
+    --surface-2: #f0f0f5;
+    --border: rgba(20, 20, 40, .08);
+    --border-strong: rgba(20, 20, 40, .14);
+    --text: #15151e;
+    --muted: #6b6b7e;
+    --faint: #9a9aab;
+    --accent-1: #8b5cf6;
+    --accent-2: #ec4899;
+    --accent-soft: rgba(139, 92, 246, .12);
+    --ok: #059669;
+    --err: #dc2626;
+    --track: rgba(20, 20, 40, .08);
+    --shadow: 0 1px 2px rgba(20, 20, 40, .04), 0 8px 24px rgba(20, 20, 40, .06);
+    --radius: 16px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e0e14;
+      --surface: #16161f;
+      --surface-2: #1d1d29;
+      --border: rgba(255, 255, 255, .06);
+      --border-strong: rgba(255, 255, 255, .12);
+      --text: #ececf2;
+      --muted: #8d8da2;
+      --faint: #5f5f73;
+      --accent-soft: rgba(139, 92, 246, .16);
+      --ok: #34d399;
+      --err: #f87171;
+      --track: rgba(255, 255, 255, .07);
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px rgba(0, 0, 0, .25);
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    overflow: hidden;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  svg { display: block; }
+
+  .app {
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    gap: 16px;
+    padding: 24px 28px 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .top { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 44px; height: 44px; filter: drop-shadow(0 6px 14px rgba(160, 80, 220, .35)); }
+  .brand h1 {
+    margin: 0;
+    font: 650 20px/1.2 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    letter-spacing: -.01em;
+  }
+  .brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  /* Composer */
+  .composer { padding: 6px; transition: border-color .15s, box-shadow .15s; }
+  .composer:focus-within { border-color: rgba(139, 92, 246, .55); box-shadow: var(--shadow), 0 0 0 4px var(--accent-soft); }
+  .composer textarea {
+    display: block;
+    width: 100%;
+    min-height: 92px;
+    max-height: 180px;
+    resize: none;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    padding: 14px 16px 6px;
+    font-size: 15px;
+    user-select: text;
+  }
+  .composer textarea::placeholder { color: var(--faint); }
+  .composer-bar { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px; }
+  .hint { color: var(--faint); font-size: 12.5px; margin-right: auto; }
+  kbd {
+    font: 11.5px "Segoe UI", system-ui; padding: 1px 6px; border-radius: 5px;
+    border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--muted);
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 36px; padding: 0 14px;
+    border-radius: 10px; border: 1px solid var(--border-strong);
+    background: var(--surface-2); cursor: pointer;
+    font-weight: 550; font-size: 13.5px;
+    transition: background .15s, transform .1s, opacity .15s, border-color .15s;
+  }
+  .btn:hover { border-color: var(--faint); }
+  .btn:active { transform: scale(.97); }
+  .btn svg { width: 16px; height: 16px; }
+  .btn.primary {
+    height: 40px; padding: 0 22px; border: 0; color: #fff;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    box-shadow: 0 6px 18px rgba(200, 80, 200, .35);
+  }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .45; pointer-events: none; }
+  .icon-btn {
+    width: 32px; height: 32px; padding: 0; justify-content: center;
+    border: 0; background: transparent; color: var(--muted); border-radius: 8px;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+  /* Options row */
+  .options { display: grid; grid-template-columns: 1fr auto; gap: 16px; }
+  .option { padding: 12px 14px; display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .option-label { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+  .folder-icon {
+    width: 36px; height: 36px; flex: none; border-radius: 10px;
+    display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-1);
+  }
+  .folder-icon svg { width: 18px; height: 18px; }
+  .folder-text { min-width: 0; flex: 1; }
+  .folder-path { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+
+  .segmented { display: flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--surface-2); }
+  .segmented button {
+    border: 0; background: transparent; height: 30px; padding: 0 12px;
+    border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 550; font-size: 13px;
+    transition: background .15s, color .15s;
+  }
+  .segmented button:hover { color: var(--text); }
+  .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
+
+  /* Downloads list */
+  .list { min-height: 0; display: flex; flex-direction: column; }
+  .list-head { display: flex; align-items: baseline; gap: 10px; padding: 4px 4px 10px; }
+  .list-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+  .list-head .count { color: var(--faint); font-size: 13px; margin-right: auto; }
+  .link { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+  .link:hover { color: var(--text); background: var(--surface-2); }
+
+  .items { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 2px 4px 4px 2px; }
+  .items::-webkit-scrollbar { width: 10px; }
+  .items::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; border: 3px solid var(--bg); }
+
+  .item { display: grid; grid-template-columns: 136px 1fr auto; gap: 16px; align-items: center; padding: 10px; animation: in .25s ease-out; }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } }
+  .thumb {
+    width: 136px; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden;
+    background: var(--surface-2); position: relative; display: grid; place-items: center; color: var(--faint);
+  }
+  .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .thumb svg { width: 22px; height: 22px; }
+  .duration {
+    position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 5px;
+    background: rgba(0, 0, 0, .72); color: #fff; font-size: 11.5px; font-weight: 600;
+  }
+  .body { min-width: 0; }
+  .title { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: text; }
+  .meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 6px; border-radius: 6px; background: var(--track); margin-top: 10px; overflow: hidden; }
+  .bar span {
+    display: block; height: 100%; width: 0; border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+    transition: width .3s ease;
+  }
+  .status { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12.5px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .status svg { width: 14px; height: 14px; flex: none; }
+
+  .item[data-state="fetching"] .bar span,
+  .item[data-state="merging"] .bar span,
+  .item[data-state="queued"] .bar span {
+    width: 35% !important; animation: slide 1.2s ease-in-out infinite;
+  }
+  .item[data-state="queued"] .bar span { animation: none; width: 0 !important; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+  .item[data-state="done"] .bar span { width: 100% !important; background: var(--ok); }
+  .item[data-state="done"] .status { color: var(--ok); }
+  .item[data-state="error"] .bar span { width: 100% !important; background: var(--err); }
+  .item[data-state="error"] .status { color: var(--err); white-space: normal; user-select: text; }
+  .item[data-state="cancelled"] { opacity: .6; }
+  .item[data-state="cancelled"] .bar span { width: 0 !important; }
+
+  .actions { display: flex; gap: 4px; }
+  .actions .btn { height: 32px; padding: 0 12px; font-size: 13px; }
+  .actions .icon-btn { width: 32px; padding: 0; }
+  .btn svg { flex: none; }
+
+  .empty {
+    flex: 1; display: grid; place-items: center; text-align: center;
+    border: 1.5px dashed var(--border-strong); border-radius: var(--radius); color: var(--muted); padding: 28px;
+  }
+  .empty-art {
+    width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 16px;
+    display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-1);
+  }
+  .empty-art svg { width: 26px; height: 26px; }
+  .empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px);
+    background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 10px;
+    font-size: 13px; font-weight: 550; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 760px) {
+    .options { grid-template-columns: 1fr; }
+    .item { grid-template-columns: 96px 1fr; }
+    .thumb { width: 96px; }
+    .actions { grid-column: 1 / -1; justify-content: flex-end; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/>
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="24" fill="url(#lg)"/>
+      <rect x="43.5" y="17" width="13" height="29" rx="6.5" fill="#fff"/>
+      <path d="M33 42 L67 42 L50 62 Z" fill="#fff" stroke="#fff" stroke-width="12" stroke-linejoin="round"/>
+      <rect x="28" y="76" width="44" height="7" rx="3.5" fill="#fff"/>
+    </svg>
+    <div class="brand">
+      <h1>Video Downloader</h1>
+      <p>YouTube and 1,000+ other sites, saved as MP4 with sound</p>
+    </div>
+  </header>
+
+  <section class="card composer">
+    <textarea id="links" spellcheck="false" placeholder="Paste video links here, one per line"></textarea>
+    <div class="composer-bar">
+      <span class="hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to download</span>
+      <button class="btn" id="paste" title="Paste from clipboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+        Paste
+      </button>
+      <button class="btn primary" id="go">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+        Download
+      </button>
+    </div>
+  </section>
+
+  <section class="options">
+    <div class="card option">
+      <div class="folder-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+      </div>
+      <div class="folder-text">
+        <div class="option-label">Save to</div>
+        <div class="folder-path" id="dest" title="">&nbsp;</div>
+      </div>
+      <button class="btn" id="change">Change</button>
+      <button class="icon-btn btn" id="open-dest" title="Open folder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+      </button>
+    </div>
+    <div class="card option">
+      <div class="option-label">Quality</div>
+      <div class="segmented" id="quality" role="group" aria-label="Maximum quality">
+        <button data-q="720">720p</button>
+        <button data-q="1080">1080p</button>
+        <button data-q="1440">1440p</button>
+        <button data-q="2160">4K</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="list">
+    <div class="list-head">
+      <h2>Downloads</h2>
+      <span class="count" id="count"></span>
+      <button class="link" id="clear" hidden>Clear finished</button>
+    </div>
+    <div class="items" id="items"></div>
+    <div class="empty" id="empty">
+      <div>
+        <div class="empty-art">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg>
+        </div>
+        <strong>No downloads yet</strong>
+        Paste a link above and press Download.
+      </div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<template id="item-tpl">
+  <article class="card item" data-state="queued">
+    <div class="thumb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg>
+    </div>
+    <div class="body">
+      <div class="title"></div>
+      <div class="meta"></div>
+      <div class="bar"><span></span></div>
+      <div class="status"><span class="status-text">Waiting…</span></div>
+    </div>
+    <div class="actions"></div>
+  </article>
+</template>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const items = new Map(); // id -> element
+let api = null;
+
+const ICON = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  retry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>',
+};
+
+function toast(text) {
+  const t = $("#toast");
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function setDest(path) {
+  const el = $("#dest");
+  // rtl keeps the end of a long path visible; the LRM mark keeps slashes in order.
+  el.textContent = "‎" + path + "‎";
+  el.title = path;
+}
+
+function setQuality(q) {
+  for (const b of document.querySelectorAll("#quality button")) {
+    b.setAttribute("aria-pressed", String(b.dataset.q === String(q)));
+  }
+}
+
+function refreshCounts() {
+  const all = [...items.values()];
+  $("#empty").hidden = all.length > 0;
+  $("#items").hidden = all.length === 0;
+  const active = all.filter((el) => ["queued", "fetching", "downloading", "merging"].includes(el.dataset.state)).length;
+  const done = all.filter((el) => el.dataset.state === "done").length;
+  $("#count").textContent = all.length ? (active ? `${active} in progress · ${done} done` : `${done} done`) : "";
+  $("#clear").hidden = !all.some((el) => ["done", "error", "cancelled"].includes(el.dataset.state));
+}
+
+function setActions(el, id) {
+  const box = el.querySelector(".actions");
+  const state = el.dataset.state;
+  box.innerHTML = "";
+  const add = (html, title, fn, cls = "btn") => {
+    const b = document.createElement("button");
+    b.className = cls;
+    b.innerHTML = html;
+    b.title = title;
+    b.onclick = fn;
+    box.append(b);
+  };
+  if (state === "done") {
+    add(ICON.play + "Play", "Open the video", () => api.open_file(el.dataset.path));
+    add(ICON.folder, "Show in folder", () => api.reveal(el.dataset.path), "btn icon-btn");
+  } else if (state === "error" || state === "cancelled") {
+    add(ICON.retry + "Retry", "Try again", () => { remove(id); start([el.dataset.url]); });
+    add(ICON.x, "Remove", () => remove(id), "btn icon-btn");
+  } else {
+    add(ICON.x, "Cancel", () => api.cancel(id), "btn icon-btn");
+  }
+}
+
+function remove(id) {
+  items.get(id)?.remove();
+  items.delete(id);
+  refreshCounts();
+}
+
+function setStatus(el, text, icon) {
+  const s = el.querySelector(".status");
+  s.innerHTML = (icon || "") + '<span class="status-text"></span>';
+  s.querySelector(".status-text").textContent = text;
+}
+
+function addItem(id, url) {
+  const el = $("#item-tpl").content.firstElementChild.cloneNode(true);
+  el.dataset.url = url;
+  el.querySelector(".title").textContent = url.replace(/^https?:\/\/(www\.)?/, "");
+  el.querySelector(".meta").textContent = new URL(url).hostname.replace(/^www\./, "");
+  $("#items").append(el);
+  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  items.set(id, el);
+  setActions(el, id);
+  refreshCounts();
+}
+
+// Python calls this with progress events.
+window.onEvent = (ev) => {
+  const el = items.get(ev.id);
+  if (!el) return;
+  const prev = el.dataset.state;
+  if (ev.state) el.dataset.state = ev.state;
+
+  if (ev.title) el.querySelector(".title").textContent = ev.title;
+  if (ev.meta) el.querySelector(".meta").textContent = ev.meta;
+  if (ev.thumbnail && !el.querySelector(".thumb img")) {
+    const img = new Image();
+    img.onload = () => el.querySelector(".thumb").prepend(img);
+    img.src = ev.thumbnail;
+  }
+  if (ev.duration && !el.querySelector(".duration")) {
+    const d = document.createElement("span");
+    d.className = "duration";
+    d.textContent = ev.duration;
+    el.querySelector(".thumb").append(d);
+  }
+  if (typeof ev.percent === "number") el.querySelector(".bar span").style.width = ev.percent.toFixed(1) + "%";
+  if (ev.path) el.dataset.path = ev.path;
+
+  const icon = ev.state === "done" ? ICON.check : ev.state === "error" ? ICON.alert : "";
+  if (ev.status) setStatus(el, ev.status, icon);
+  if (ev.state && ev.state !== prev) setActions(el, ev.id);
+  if (ev.state === "done") toast("Saved: " + (el.querySelector(".title").textContent || "video"));
+  refreshCounts();
+};
+
+async function start(urls) {
+  const clean = [];
+  const bad = [];
+  for (const raw of urls) {
+    const u = raw.trim();
+    if (!u) continue;
+    try {
+      const parsed = new URL(u);
+      if (!/^https?:$/.test(parsed.protocol)) throw 0;
+      clean.push(u);
+    } catch { bad.push(u); }
+  }
+  if (bad.length) toast(`Skipped ${bad.length} line(s) that aren't links`);
+  if (!clean.length) return false;
+  const jobs = await api.add(clean);
+  for (const j of jobs) addItem(j.id, j.url);
+  return true;
+}
+
+async function submit() {
+  const box = $("#links");
+  if (!box.value.trim()) { toast("Paste a video link first"); box.focus(); return; }
+  if (await start(box.value.split(/\s+/))) box.value = "";
+}
+
+async function init() {
+  api = window.pywebview.api;
+  const s = await api.init();
+  setDest(s.destination);
+  setQuality(s.quality);
+  refreshCounts();
+
+  $("#go").onclick = submit;
+  $("#links").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.ctrlKey) { e.preventDefault(); submit(); }
+  });
+  $("#paste").onclick = async () => {
+    const text = (await api.paste()).trim();
+    if (!text) { toast("Clipboard is empty"); return; }
+    const box = $("#links");
+    box.value = box.value.trim() ? box.value.trim() + "\n" + text : text;
+    box.focus();
+  };
+  // Paste-on-focus: if the box is empty and the clipboard holds a new link, fill it in.
+  let lastAuto = "";
+  $("#links").addEventListener("focus", async () => {
+    const box = $("#links");
+    if (box.value.trim()) return;
+    const text = (await api.paste()).trim();
+    if (/^https?:\/\/\S+$/.test(text) && text !== lastAuto) {
+      box.value = text;
+      lastAuto = text;
+      box.select();
+    }
+  });
+  $("#change").onclick = async () => {
+    const path = await api.choose_folder();
+    if (path) { setDest(path); toast("Videos will be saved here"); }
+  };
+  $("#open-dest").onclick = () => api.open_folder();
+  for (const b of document.querySelectorAll("#quality button")) {
+    b.onclick = () => { setQuality(b.dataset.q); api.set_quality(Number(b.dataset.q)); };
+  }
+  $("#clear").onclick = () => {
+    for (const [id, el] of items) {
+      if (["done", "error", "cancelled"].includes(el.dataset.state)) remove(id);
+    }
+  };
+  $("#links").focus();
+}
+
+window.addEventListener("pywebviewready", init);
+</script>
+</body>
+</html>
